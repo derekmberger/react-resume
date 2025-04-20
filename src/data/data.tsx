@@ -6,6 +6,7 @@ import {
 
 import GithubIcon from '../components/Icon/GithubIcon';
 import LinkedInIcon from '../components/Icon/LinkedInIcon';
+import ari from '../images/ari.jpg';
 import heroImage from '../images/lido_1.webp';
 import profilepic from '../images/profilepic.jpg';
 import testimonialImage from '../images/testimonial.webp';
@@ -310,6 +311,11 @@ export const testimonial: TestimonialSection = {
       name: 'Adam Zielke',
       text: 'I worked with Derek for over two years at Progenity and had the pleasure of getting to know him in the office. Derek has always been a top performer on his team and true leader. He made himself available to everyone that needed his specific skillset. Derek\'s real value is in the innovation, drive and professionalism he brings to a company.',
       image: zielke,
+    },
+    {
+      name: 'Ari Summer',
+      text: 'I had the pleasure of managing Derek during his time as Lead DevOps Engineer at Loomly. Derek is reliable, thoughtful, and deeply committed to finding the best approach for each situation. He brought a calm, methodical mindset to transforming our infrastructure—making it far more robust, observable, and easy to work with. He consistently focused on simplicity and clarity in his solutions, always keeping the developer experience in mind. His contributions made a huge impact on our team and were key to our success. He is an asset to any engineering organization!',
+      image: ari,
     },
     {
       name: 'Ben Tidman',
