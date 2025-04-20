@@ -1,5 +1,5 @@
 # ---------- builder: install everything & build ----------
-FROM node:20-alpine AS builder
+FROM node:23-alpine AS builder
 WORKDIR /app
 RUN npm install -g yarn@1.22.19 --force
 COPY package.json yarn.lock ./
@@ -11,7 +11,7 @@ RUN yarn build
 RUN yarn install --production --frozen-lockfile --modules-folder /app/prod_node_modules
 
 # ---------- runner: just copy built output + prod modules ----------
-FROM node:20-alpine AS runner
+FROM node:23-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/.next ./.next
