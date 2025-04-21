@@ -1,3 +1,4 @@
+# .github/workflows/ci-cd.yml
 name: Build, Push & Deploy to ECS
 
 on:
@@ -11,39 +12,35 @@ permissions:
   contents: read
   id-token: write
 
-env:
-  AWS_REGION:     us-east-1
-  ECR_REPOSITORY: react-resume
-  CONTAINER_NAME: resume
-
-  # branch → env var mapping
-  CLUSTER_MAP: >-
-    {"main":"biotornic-dev-ecs-cluster",
-     "staging":"biotornic-stg-ecs-cluster",
-     "production":"biotornic-prod-ecs-cluster"}
-  SERVICE_MAP: >-
-    {"main":"dev-resume",
-     "staging":"stg-resume",
-     "production":"prod-resume"}
-  TAG_MAP: >-
-    {"main":"dev",
-     "staging":"staging",
-     "production":"production"}
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     env:
-      ECS_CLUSTER_NAME: ${{ fromJson(env.CLUSTER_MAP)[github.ref_name] }}
-      ECS_SERVICE_NAME: ${{ fromJson(env.SERVICE_MAP)[github.ref_name] }}
-      IMAGE_ALIAS:      ${{ fromJson(env.TAG_MAP)[github.ref_name] }}
+      AWS_REGION:     us-east-1
+      ECR_REPOSITORY: react-resume
+      CONTAINER_NAME: resume
+
+      CLUSTER_MAP: '{"main":"biotornic-dev-ecs-cluster","staging":"biotornic-stg-ecs-cluster","production":"biotornic-prod-ecs-cluster"}'
+      SERVICE_MAP: '{"main":"dev-resume","staging":"stg-resume","production":"prod-resume"}'
+      TAG_MAP:     '{"main":"dev","staging":"staging","production":"production"}'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.4.0
         with:
           fetch-depth: 0
+
+      - name: Set branch‐specific variables
+        shell: bash
+        run: |
+          REF=${GITHUB_REF#refs/heads/}
+          ECS_CLUSTER_NAME=$(echo $CLUSTER_MAP | jq -r .["$REF"])
+          ECS_SERVICE_NAME=$(echo $SERVICE_MAP | jq -r .["$REF"])
+          IMAGE_ALIAS=$(echo $TAG_MAP | jq -r .["$REF"])
+          echo "ECS_CLUSTER_NAME=$ECS_CLUSTER_NAME" >> $GITHUB_ENV
+          echo "ECS_SERVICE_NAME=$ECS_SERVICE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_ALIAS=$IMAGE_ALIAS" >> $GITHUB_ENV
 
       - name: Configure AWS creds
         uses: aws-actions/configure-aws-credentials@v4.4.0
@@ -66,16 +63,15 @@ jobs:
 
       - name: Fetch active task definition
         run: |
-          echo "Fetching active task definition ARN..."
           aws ecs describe-services \
-            --cluster "${ECS_CLUSTER_NAME}" \
-            --services "${ECS_SERVICE_NAME}" \
-            --query "services[0].taskDefinition" \
+            --cluster "$ECS_CLUSTER_NAME" \
+            --services "$ECS_SERVICE_NAME" \
+            --query 'services[0].taskDefinition' \
             --output text > current-td-arn.txt
-          echo "Downloading active task definition JSON..."
+
           aws ecs describe-task-definition \
             --task-definition "$(cat current-td-arn.txt)" \
-            --query "taskDefinition" \
+            --query 'taskDefinition' \
             --output json > task-definition.json
 
       - name: Render new task definition
@@ -94,11 +90,10 @@ jobs:
           cluster:                    ${{ env.ECS_CLUSTER_NAME }}
           wait-for-service-stability: true
 
-      - name: Tag & push branch‑alias tag
+      - name: Tag & push branch‐alias tag
         if: success()
         run: |
           IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
-          ALIAS=${{ env.IMAGE_ALIAS }}
-          echo "Tagging $IMAGE_URI:${{ github.sha }} as $IMAGE_URI:$ALIAS"
-          docker tag "$IMAGE_URI:${{ github.sha }}" "$IMAGE_URI:$ALIAS"
-          docker push "$IMAGE_URI:$ALIAS"
+          echo "Tagging $IMAGE_URI:${{ github.sha }} as $IMAGE_URI:$IMAGE_ALIAS"
+          docker tag "$IMAGE_URI:${{ github.sha }}" "$IMAGE_URI:$IMAGE_ALIAS"
+          docker push "$IMAGE_URI:$IMAGE_ALIAS"
