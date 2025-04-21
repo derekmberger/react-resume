@@ -1,4 +1,3 @@
-# .github/workflows/ci-cd.yml
 name: Build, Push & Deploy to ECS
 
 on:
@@ -27,23 +26,20 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.4.0
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
 
-      - name: Set branch‐specific variables
+      - name: Set branch‑specific vars
         shell: bash
         run: |
           REF=${GITHUB_REF#refs/heads/}
-          ECS_CLUSTER_NAME=$(echo $CLUSTER_MAP | jq -r .["$REF"])
-          ECS_SERVICE_NAME=$(echo $SERVICE_MAP | jq -r .["$REF"])
-          IMAGE_ALIAS=$(echo $TAG_MAP | jq -r .["$REF"])
-          echo "ECS_CLUSTER_NAME=$ECS_CLUSTER_NAME" >> $GITHUB_ENV
-          echo "ECS_SERVICE_NAME=$ECS_SERVICE_NAME" >> $GITHUB_ENV
-          echo "IMAGE_ALIAS=$IMAGE_ALIAS" >> $GITHUB_ENV
+          echo "ECS_CLUSTER_NAME=$(echo $CLUSTER_MAP   | jq -r .[\"$REF\"])" >> $GITHUB_ENV
+          echo "ECS_SERVICE_NAME=$(echo $SERVICE_MAP   | jq -r .[\"$REF\"])" >> $GITHUB_ENV
+          echo "IMAGE_ALIAS=$(echo $TAG_MAP           | jq -r .[\"$REF\"])" >> $GITHUB_ENV
 
       - name: Configure AWS creds
-        uses: aws-actions/configure-aws-credentials@v4.4.0
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region:      ${{ env.AWS_REGION }}
@@ -54,7 +50,7 @@ jobs:
 
       - id: build-image
         name: Build & push image (SHA tag only)
-        uses: docker/build-push-action@v3.7.0
+        uses: docker/build-push-action@v3
         with:
           context: .
           push: true
@@ -68,7 +64,6 @@ jobs:
             --services "$ECS_SERVICE_NAME" \
             --query 'services[0].taskDefinition' \
             --output text > current-td-arn.txt
-
           aws ecs describe-task-definition \
             --task-definition "$(cat current-td-arn.txt)" \
             --query 'taskDefinition' \
@@ -90,10 +85,9 @@ jobs:
           cluster:                    ${{ env.ECS_CLUSTER_NAME }}
           wait-for-service-stability: true
 
-      - name: Tag & push branch‐alias tag
+      - name: Tag & push alias
         if: success()
         run: |
           IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
-          echo "Tagging $IMAGE_URI:${{ github.sha }} as $IMAGE_URI:$IMAGE_ALIAS"
           docker tag "$IMAGE_URI:${{ github.sha }}" "$IMAGE_URI:$IMAGE_ALIAS"
           docker push "$IMAGE_URI:$IMAGE_ALIAS"
